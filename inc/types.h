@@ -8,6 +8,7 @@ typedef enum ErrorType {
     MEMORY_ERROR,
     INPUT_ERROR,
     NOT_FOUND,
+    DIRECTORY_ERROR,
 } ErrorType;
 
 typedef enum ExitCode {

@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -52,7 +53,7 @@ int displayError(Error* err) {
     return FAILURE;
 }
 
-Result parseArgumentString(Arguments* args, char* arg) {
+Result parse_arg(Arguments* args, char* arg) {
     char errorTemplate[29] = "ft_ls: invalid option -- '_'";
 
     for (int idx = 0; arg[idx]; ++idx) {
@@ -91,7 +92,7 @@ void free_matrix(char** m) {
     free(m);
 }
 
-Result addFileArgument(Arguments* args, char* arg) {
+Result add_file_arg(Arguments* args, char* arg) {
     char** target_paths = ft_calloc(++args->n_target_paths + 1, sizeof(char*));
     size_t idx = 0;
 
@@ -115,7 +116,7 @@ Result addFileArgument(Arguments* args, char* arg) {
     return result(NULL, NONE, NULL);
 }
 
-Result parseArguments(char** av) {
+Result parse_args(char** av) {
     Arguments* args = ft_calloc(1, sizeof(Arguments));
     if (!args) {
         return newError(MEMORY_ERROR, strerror(errno));
@@ -126,12 +127,12 @@ Result parseArguments(char** av) {
             if (ft_strlen(av[idx]) == 1) {
                 return newError(NOT_FOUND, "ft_ls: cannot access '-': No such file or directory");
             }
-            Result res = parseArgumentString(args, &av[idx][1]);
+            Result res = parse_arg(args, &av[idx][1]);
             if (res.err != NULL) {
                 return res;
             }
         } else {
-            Result res = addFileArgument(args, av[idx]);
+            Result res = add_file_arg(args, av[idx]);
             if (res.err != NULL) {
                 return res;
             }
@@ -140,17 +141,41 @@ Result parseArguments(char** av) {
     return result(args, STRUCT_PTR, NULL);
 }
 
+Result ls(Arguments* args, char* dirname) {
+    if (args && (args->a || args->target_paths)) {
+        printf("%s:\n", dirname);
+    }
+    DIR* dir = opendir(dirname);
+    if (!dir) {
+        if (errno == ENOTDIR) {
+            return result(NULL, NONE, NULL);
+        }
+        return newError(DIRECTORY_ERROR, strerror(errno));
+    }
+    struct dirent* dir_data = readdir(dir);
+
+    while (dir_data) {
+        printf("%s ", dir_data->d_name);
+        dir_data = readdir(dir);
+    }
+    closedir(dir);
+    return result(NULL, NONE, NULL);
+}
+
 int main(int ac, char** av) {
     Arguments* args = NULL;
 
     if (ac > 1) {
-        Result res = parseArguments(&av[1]);
+        Result res = parse_args(&av[1]);
         if (res.type == ERROR) {
             return displayError(res.err);
         }
         args = (Arguments*)res.content;
     }
-    free_matrix(args->target_paths);
-    free(args);
+    ls(args, ".");
+    if (ac > 1) {
+        free_matrix(args->target_paths);
+        free(args);
+    }
     return 0;
 }
