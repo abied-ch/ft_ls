@@ -1,31 +1,11 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <unistd.h>
+
 #include "../libft/include/libft.h"
+#include "types.h"
 
-typedef enum ErrorType {
-    SUCCESS,
-    MEMORY_ERROR,
-    ARGUMENT_ERROR,
-} ErrorType;
-
-typedef struct Error {
-    ErrorType type;
-    char*     msg;
-} Error;
-
-typedef enum ContentType {
-    CHAR_PTR,
-    INT_PTR,
-    STRUCT_PTR,
-} ContentType;
-
-typedef struct Result {
-    void*       content;
-    ContentType type;
-    Error       err;
-} Result;
-
-Result result(void* content, ContentType contentType, Error err) {
+Result result(void* content, ContentType contentType, Error* err) {
     struct Result res;
 
     res.content = content;
@@ -34,12 +14,41 @@ Result result(void* content, ContentType contentType, Error err) {
     return res;
 }
 
-Error newError(ErrorType type, char* message) {
-    struct Error err;
+Result newError(ErrorType type, char* message) {
+    Error* err = ft_calloc(1, sizeof(Error));
+    if (!err) {
+        return result(NULL, ERROR, NULL);
+    }
 
-    err.type = type;
-    err.msg = message;
-    return err;
+    err->type = type;
+    err->msg = ft_strdup(message);
+    if (!err->msg) {
+        free(err);
+        return result(NULL, ERROR, NULL);
+    }
+
+    Result res;
+    res.err = err;
+    res.type = ERROR;
+    res.content = NULL;
+    return res;
+}
+
+int displayError(Error* err) {
+    if (!err) {
+        return FAILURE;
+    }
+
+    int type = err->type;
+
+    ft_putendl_fd(err->msg, STDERR_FILENO);
+    free(err->msg);
+    free(err);
+
+    if (type == NOT_FOUND) {
+        return ENOENT;
+    }
+    return FAILURE;
 }
 
 typedef struct Arguments {
@@ -51,24 +60,57 @@ typedef struct Arguments {
     char** targetPaths;
 } Arguments;
 
-Result parseArguments(char** av) {
-    Arguments args;
+Result parseArgumentString(Arguments* args, char* arg) {
+    char errorTemplate[29] = "ft_ls: invalid option -- '_'";
 
-    for (int i = 0; av[i]; ++i) {
-        for (int j = 0; av[i][j]; ++j) {
-            if (av[i][0] == '-' && ft_strlen(av[i]) > 1) {
-                // TODO: handle file arguments
+    for (int idx = 0; arg[idx]; ++idx) {
+        switch (arg[idx]) {
+            case 'a':
+                args->a = true;
+                break;
+            case 'l':
+                args->l = true;
+                break;
+            case 'R':
+                args->R = true;
+                break;
+            case 'r':
+                args->r = true;
+                break;
+            case 't':
+                args->t = true;
+                break;
+            default:
+                errorTemplate[26] = arg[idx];
+                return newError(INPUT_ERROR, errorTemplate);
+        }
+    }
+    return result(NULL, NONE, NULL);
+}
+
+Result parseArguments(char** av) {
+    Arguments args = {0};
+
+    for (int idx = 0; av[idx]; ++idx) {
+        if (av[idx][0] == '-') {
+            if (ft_strlen(av[idx]) == 1) {
+                return newError(NOT_FOUND, "ft_ls: cannot access '-': No such file or directory");
+            }
+            Result res = parseArgumentString(&args, &av[idx][1]);
+            if (res.err != NULL) {
+                return res;
             }
         }
     }
+    return result(&args, STRUCT_PTR, NULL);
 }
-
-Result function() { return result("Hello, World!", CHAR_PTR, newError(SUCCESS, NULL)); }
 
 int main(int ac, char** av) {
     if (ac > 1) {
         Result res = parseArguments(&av[1]);
-        if (res.err.type != SUCCESS) {
+        if (res.type == ERROR) {
+            return displayError(res.err);
         }
     }
+    return 0;
 }
