@@ -1,6 +1,9 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <stdbool.h>
+#include <stdio.h>
+
 typedef enum ErrorType {
     MEMORY_ERROR,
     INPUT_ERROR,
@@ -10,7 +13,7 @@ typedef enum ErrorType {
 typedef enum ExitCode {
     SUCCESS = 0,
     FAILURE = 1,
-    ENOENT = 2,
+    NOENT = 2,
 } ExitCode;
 
 typedef struct Error {
@@ -31,5 +34,15 @@ typedef struct Result {
     ContentType type;
     Error*      err;
 } Result;
+
+typedef struct Arguments {
+    bool   a;
+    bool   l;
+    bool   R;
+    bool   r;
+    bool   t;
+    char** target_paths;
+    size_t n_target_paths;
+} Arguments;
 
 #endif
