@@ -14,15 +14,11 @@
 # define LIBFT_H
 
 # include <string.h>
-# include <stdlib.h>
-# include <stdio.h>
-# include <ctype.h>
 # include <stddef.h>
 # include <unistd.h>
 # include <stdarg.h>
 # include <unistd.h>
 # include <fcntl.h>
-# include <math.h>
 # include <sys/types.h>
 # include <sys/wait.h>
 

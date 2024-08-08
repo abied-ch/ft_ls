@@ -14,7 +14,6 @@ typedef enum ErrorType {
 typedef enum ExitCode {
     SUCCESS = 0,
     FAILURE = 1,
-    NOENT = 2,
 } ExitCode;
 
 typedef struct Error {
@@ -26,6 +25,7 @@ typedef enum ContentType {
     NONE,
     ERROR,
     CHAR_PTR,
+    CHAR_DOUBLE_PTR,
     INT_PTR,
     STRUCT_PTR,
 } ContentType;
@@ -35,6 +35,16 @@ typedef struct Result {
     ContentType type;
     Error*      err;
 } Result;
+
+typedef struct Directory {
+    char** file_paths;
+    char*  name;
+} Directory;
+
+typedef struct DirectoryList {
+    Directory* dir;
+    Directory* next;
+} DirectoryList;
 
 typedef struct Arguments {
     bool   a;

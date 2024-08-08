@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -16,7 +17,7 @@ Result result(void* content, ContentType contentType, Error* err) {
     return res;
 }
 
-Result newError(ErrorType type, char* message) {
+Result new_error(ErrorType type, char* message) {
     Error* err = ft_calloc(1, sizeof(Error));
     if (!err) {
         return result(NULL, ERROR, NULL);
@@ -75,7 +76,7 @@ Result parse_arg(Arguments* args, char* arg) {
                 break;
             default:
                 errorTemplate[26] = arg[idx];
-                return newError(INPUT_ERROR, errorTemplate);
+                return new_error(INPUT_ERROR, errorTemplate);
         }
     }
     return result(NULL, NONE, NULL);
@@ -92,6 +93,39 @@ void free_matrix(char** m) {
     free(m);
 }
 
+// SAFETY:
+// This function assumes that the matrix is null-terminated
+Result append_string_to_matrix(char** old, char* s) {
+    size_t oldsize = 0;
+
+    while (old && old[oldsize]) {
+        oldsize++;
+    }
+
+    char** new = ft_calloc(oldsize + 2, sizeof(char*));
+    if (!new) {
+        return new_error(MEMORY_ERROR, strerror(errno));
+    }
+
+    size_t idx = 0;
+    while (idx < oldsize) {
+        new[idx] = ft_strdup(old[idx]);
+        if (!new[idx]) {
+            free_matrix(new);
+            return new_error(MEMORY_ERROR, strerror(errno));
+        }
+        idx++;
+    }
+
+    new[idx] = ft_strdup(s);
+    if (!new[idx]) {
+        free_matrix(new);
+        return new_error(MEMORY_ERROR, strerror(errno));
+    }
+    new[idx + 1] = NULL;
+    return result(new, CHAR_DOUBLE_PTR, NULL);
+}
+
 Result add_file_arg(Arguments* args, char* arg) {
     char** target_paths = ft_calloc(++args->n_target_paths + 1, sizeof(char*));
     size_t idx = 0;
@@ -100,7 +134,7 @@ Result add_file_arg(Arguments* args, char* arg) {
         target_paths[idx] = ft_strdup(args->target_paths[idx]);
         if (!target_paths[idx]) {
             free_matrix(target_paths);
-            return newError(MEMORY_ERROR, strerror(errno));
+            return new_error(MEMORY_ERROR, strerror(errno));
         }
         idx++;
     }
@@ -108,7 +142,7 @@ Result add_file_arg(Arguments* args, char* arg) {
     target_paths[idx] = ft_strdup(arg);
     if (!target_paths[idx]) {
         free_matrix(target_paths);
-        return newError(MEMORY_ERROR, strerror(errno));
+        return new_error(MEMORY_ERROR, strerror(errno));
     }
     target_paths[idx + 1] = NULL;
     free_matrix(args->target_paths);
@@ -119,13 +153,13 @@ Result add_file_arg(Arguments* args, char* arg) {
 Result parse_args(char** av) {
     Arguments* args = ft_calloc(1, sizeof(Arguments));
     if (!args) {
-        return newError(MEMORY_ERROR, strerror(errno));
+        return new_error(MEMORY_ERROR, strerror(errno));
     }
 
     for (int idx = 0; av[idx]; ++idx) {
         if (av[idx][0] == '-') {
             if (ft_strlen(av[idx]) == 1) {
-                return newError(NOT_FOUND, "ft_ls: cannot access '-': No such file or directory");
+                return new_error(NOT_FOUND, "ft_ls: cannot access '-': No such file or directory");
             }
             Result res = parse_arg(args, &av[idx][1]);
             if (res.err != NULL) {
@@ -141,7 +175,9 @@ Result parse_args(char** av) {
     return result(args, STRUCT_PTR, NULL);
 }
 
-Result ls(Arguments* args, char* dirname) {
+// Result append_dir() {}
+
+Result walk_dir(Arguments* args, char* dirname) {
     if (args && (args->a || args->target_paths)) {
         printf("%s:\n", dirname);
     }
@@ -150,7 +186,7 @@ Result ls(Arguments* args, char* dirname) {
         if (errno == ENOTDIR) {
             return result(NULL, NONE, NULL);
         }
-        return newError(DIRECTORY_ERROR, strerror(errno));
+        return new_error(DIRECTORY_ERROR, strerror(errno));
     }
     struct dirent* dir_data = readdir(dir);
 
@@ -172,7 +208,15 @@ int main(int ac, char** av) {
         }
         args = (Arguments*)res.content;
     }
-    ls(args, ".");
+    DirectoryList* dir_list = ft_calloc(1, sizeof(DirectoryList));
+    if (!dir_list) {
+        perror("memory allocation for directory list failed");
+        return EXIT_FAILURE;
+    }
+    Result res = walk_dir(args, ".");
+    if (res.type == ERROR) {
+        return displayError(res.err);
+    }
     if (ac > 1) {
         free_matrix(args->target_paths);
         free(args);
